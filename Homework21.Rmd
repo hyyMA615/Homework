@@ -1,0 +1,153 @@
+---
+title: "Homework2"
+author: "Yeyang Han"
+date: "2022-09-27"
+output:
+  pdf_document: default
+  html_document: default
+  word_document: default
+---
+
+```{r setup, include=FALSE}
+library(png)
+library(jpeg)
+library(grid)
+library(knitr)
+library(tidyverse)
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Problem 1
+
+```{r}
+vehicles <- read.csv("/Users/brenda/Desktop/CS615/homework/2022.09.23//vehicles.csv",header = TRUE)
+```
+
+#1. Do an analysis of Fuel economy over the 40 year span 1984 through 2023, inclusive. You may want to do an analysis by type of fuel which will ignore hybrids and electric vehicles for most the the years under analysis.
+```{r}
+a = vehicles[vehicles$fuelType=="Regular" | vehicles$fuelType=="Premium" | vehicles$fuelType=="Diesel" | vehicles$fuelType=="CNG" | vehicles$fuelType=="Midgrade",]
+a1 <- a[a$drive=="4-Wheel or All-Wheel Drive",]
+table1 <- xtabs(~year+fuelType+drive,data = a1)
+table2 <- data.frame(ftable(table1))
+table3 <- table2 %>% select(-drive)
+colnames(table3) <- c("year","fuelType","count")
+ggplot(data = table3)+
+  geom_bar(mapping = aes(x=year,y=count),stat="identity")+
+  labs(title = "The drive of 4-Wheel or All-Wheel Drive with the different type of fuel",subtitle = "From 1984 to 2010")+
+  facet_wrap(~fuelType,nrow=2)+
+  theme(axis.text.x = element_text(angle=65, vjust=0.7))
+
+#At there, we only analysis the drive of 4-Wheel or All-Wheel Drive with the different type of fuel in 1984 - 2023. From the plots, we find that the drive with 4-Wheel or All-Wheel Drive only have data from 1984 to 2010. As for CNG, it only have data in 2006; as for diesel, some cars used it as fuel at first, but nearly no cars use it as fuel nowadays; as for premium and regular, most of cars use them as fuel in modern society.
+```
+#2. Now, examine vehicle makers. Which ones have made the most progress? Make at least two plots that address the questions above. As you do your work, you may make many plots. If you include plots in addition to the two that described above, make sure that they address different issues and are not simply intermediate steps you took as you made the to plots you’re submitting for questions 1 and 2.
+
+```{r}
+vehicles1 <- vehicles[vehicles$year==2019 | vehicles$year==2023, ]
+vehicles2 <- vehicles1[vehicles1$phevBlended=="false",]
+table3 <- xtabs(~year+make+phevBlended,data = vehicles2)
+table4 <- ftable(table3)
+b <- data.frame(table4)
+ggplot(data = b)+
+  geom_bar(mapping = aes(x=make,y=Freq),stat="identity",position = "dodge")+
+  facet_wrap(~year,nrow = 2)+
+  labs(title = "The number of no hybrids in each make",subtitle = "In 2019 and 2023",x="maker",y="")+
+  theme(axis.text.x = element_text(angle=65, vjust=0.6))
+data3 <- b %>%
+  group_by(make) %>%
+  arrange(year) %>%
+  mutate("difference" = as.numeric(Freq[2]) - as.numeric(Freq[1])) %>%
+  distinct(difference)
+#Diverging Lollipop Chart
+ggplot(data = data3,aes(x=make,y=difference,label=difference))+
+  geom_point(stat = 'identity',fill="blue",size=6) +
+  geom_segment(aes(y=0,x=make,yend=difference,xend=make),color="blue")+
+  geom_text(color="white",size=2)+
+  labs(title = "The situation ",subtitle = "Between 2019 and 2023",x="maker",y="difference")+
+  coord_flip()
+#From 2019, the came up of COVID-19 made a heavy influence for everything. So, we pick the data in 2019-2023 to see which vehicle makers made the most process. According to the plot, we find that Audi made the most process.
+```
+
+#Problem 2
+
+```{r}
+library(tidyverse)
+library(tidyquant)
+IXIC <- read.csv("/Users/brenda/Desktop/CS615/homework/2022.09.23/IXIC21-22.csv")
+IXIC$dates <- as.Date(IXIC$Date, "%Y-%m-%d")
+ixic_range_60_tbl <- IXIC %>%
+  tail(60) %>%
+  summarise(
+    max_high = max(High),
+    min_low  = min(Low)
+  )
+
+IXIC %>%
+  ggplot(aes(x = dates, y = Adj.Close)) +
+  geom_candlestick(aes(open = Open, high = High, low = Low, close = Close),colour_up = "red",colour_down = "darkgreen",fill_up = "red",fill_down = "darkgreen") +
+  labs(title = "Nasdaq Composite Candlestick Chart",subtitle="From September 20, 2021 to September 20, 2022",y="Closing Price",x="Date")+
+  theme_tq() +
+  scale_x_date(date_labels = "%m-%Y")
+#This plot shows the change of Nasdaq Composite data from September 20, 2021 to September 20, 2022.
+```
+
+#Problem 3
+```{r}
+ruralCapacityData <- read.csv("/Users/brenda/Desktop/CS615/homework/2022.09.23/ruralCapacityData.csv")
+```
+
+#1. Create a plot that emphasizes rural capacity indexes. Choose your other variables to reflect their contribution to the rural capacity index.
+```{r}
+ruralCapacityData <- ruralCapacityData[-1,]
+n <- nrow(ruralCapacityData)
+index <- ruralCapacityData$cap_index
+education <- ruralCapacityData$per_over_25_with_bach #the rate of people who get good education
+population <- ruralCapacityData$pop_over_25 / ruralCapacityData$pop_total
+health_insurance <- ruralCapacityData$per_insured 
+broadband <- ruralCapacityData$house_broadband / ruralCapacityData$tot_house #the rate of households with broadband connection
+lm<- lm(index~education+population+health_insurance+broadband)
+#pie chart
+#data <- data.frame(abs(coef(lm)[2:5]))
+data1 <- c(140.42657,38.81578,75.29542,44.01571)
+labels <- c("education","population","health_insurance","broadband")
+piepercent <- paste(round(100 * data1 / sum(data1), 1),"%")
+pie(data1,labels = piepercent ,
+    main = "Pie Chart of different contribution to the rural capacity index",
+    col = rainbow(length(data1)),border = TRUE)
+legend("topright",c("education","population","health_insurance","broadband"),cex = 0.8,
+    fill = rainbow(length(data1)))
+#From this pie chart, we can find that the contribution of education for rural capacity index rank the first, which is 47% and the contribution of population for rural capacity index only makes up 13%.
+```
+
+#2. Create a plot that demonstrates the relationship between the number of houses with broadband and the percent of adults, 25 and older, with bachelor degrees. Include information about the rural capacity indexes.
+```{r}
+library(ggplot2)
+library(dplyr)
+# bubble plot
+ggplot(ruralCapacityData, aes(x=per_over_25_with_bach, y=house_broadband, size = cap_index,color=cap_index)) +
+  geom_point(alpha=0.7)+
+  labs(title = "The relationship between the number of houses with broadband and 
+                     the people over 25 with a bachelors degree",subtitle = "33 Countries",x="the percentage of population 25 and over with a bachelors degree",y="house_broadband")+
+  theme(panel.spacing = unit(1, "lines"))
+#According to this bubble plot, we can see that whatever how many people are 25 and over with a bachelors degree, it has less influence for the number of house broadband.
+```
+
+#3. Explore different sizes of communities and their capacity indexes. Create three plots that describe communities with total population < 16000, 16000 < total population < 55000, and total population > 55000. What facets of each population subsection stand out to you, demonstrate them in your plots.
+```{r}
+ruralCapacityData$group <- ifelse(ruralCapacityData$pop_total< 16000,1,ifelse(ruralCapacityData$pop_total> 55000,3,2))
+#scatter plot
+#modify the plot making it better and know the how to filter the data between 16000 and 55000
+par(mfrow=c(1,3))
+c1 <- ruralCapacityData[ruralCapacityData$pop_total< 16000,]
+c2 <- ruralCapacityData[ruralCapacityData$pop_total> 16000 & ruralCapacityData$pop_total< 55000,]
+c3 <- ruralCapacityData[ruralCapacityData$pop_total> 55000,]
+plot(x=c1$pop_total,y=c1$cap_index,xlab="total population < 16000",ylab = "The Rural Capacity Index")
+plot(x=c2$pop_total,y=c2$cap_index,xlab="6000 < total population < 55000",ylab = "The Rural Capacity Index")
+plot(x=c3$pop_total,y=c3$cap_index,xlab="total population > 55000",ylab = "The Rural Capacity Index")
+#From these three plots, we can't see any the relationship of population and Rural Capacity Index.
+```
+
+
+
+
+
+
