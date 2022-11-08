@@ -194,7 +194,7 @@ unique(strawb_organic$State)
 ## all states mentation in strawberry dataset plant organic strawberry, that means all of
 # states realize people want to keep healthy and plant relevant things to cater costumers.
 
-#begin to clean organic data
+##begin to clean organic data
 temp1 <- strawb_organic %>% dplyr::select(Year,State) %>% distinct()
 temp1
 unique(strawb_organic$`Domain`)
@@ -203,17 +203,103 @@ unique(strawb_organic$units)
 strawb_organic$units <- str_remove_all(strawb_organic$units, "MEASURED IN ")
 
 #clean organic strawberry data
-strawb_organic %<>% dplyr::select(Year, State, type, items, units, Value, `CV(%)`)
-#items and units need to clean 
-#if have more time, need to clean type
-#plot:2016 and 2019 different states count
+strawb_organic <- strawb_organic[!names(strawb_organic) %in% c("Period","State ANSI","Strawberries", "Domain", "Domain Category")]
+#type, items and units need to be cleaned
 
-#begin to clean non_organic data
-unique(strawb_non_organic$`Domain`)
+##begin to clean non_organic data
+unique(strawb_non_organic$State) # "CALIFORNIA" "FLORIDA"    "NEW YORK"   "OREGON"
+
+unique(strawb_non_organic$Strawberries) 
+#"STRAWBERRIES - PRICE RECEIVED" "STRAWBERRIES"
+strawb_non_organic[strawb_non_organic$Strawberries=="STRAWBERRIES - PRICE RECEIVED",]
+#all in marketing year
+
+unique(strawb_non_organic$type) 
+# " MEASURED IN $ / CWT"; " FRESH MARKET - PRICE RECEIVED";
+#" PROCESSING - PRICE RECEIVED"; " BEARING - APPLICATIONS" 
+strawb_non_organic %>% dplyr::select(type, items) %>% unique()
+strawb_non_organic[strawb_non_organic$Strawberries=="STRAWBERRIES - PRICE RECEIVED",]
+strawb_non_organic[strawb_non_organic$type==" MEASURED IN $ / CWT",]
+length(which(is.na(strawb_non_organic$items)))
+#when Strawberries==STRAWBERRIES - PRICE RECEIVED, tyoe==MEASURED IN $ / CWT, items==NA
+#at this time, we will see all Period=="MARKETING YEAR". So, is there relationship between them?
+x5 <- strawb_non_organic[strawb_non_organic$Period=="MARKETING YEAR",]
+#No. About all Period=="MARKETING YEAR", Domain=="TOTAL", types==	"NOT SPECIFIED"
+#if we do not have "MARKETING YEAR" is there some pattern about value?
+x6 <- setdiff(strawb_non_organic,x5)
+#only marketing year have " MEASURED IN $ / CWT", " FRESH MARKET - PRICE RECEIVED" and " PROCESSING - PRICE RECEIVED" type;
+# year only have " BEARING - APPLICATIONS" type
+#So, we can divide subset into marketing year and year
+
+unique(strawb_non_organic$items) 
+strawb_non_organic$items <- str_remove_all(strawb_non_organic$items, "MEASURED IN ")
+#do not know how to clean
+
+unique(strawb_non_organic$units) # same operation just like chem 
+#delete directly
+
+unique(strawb_non_organic$Domain)
+#delete
+
 unique(strawb_non_organic$`Domain Category`)
-unique(strawb_non_organic$units)
+strawb_non_organic %<>% separate(col=`Domain Category`, 
+                          into = c("types", "name"),
+                          sep = ":", 
+                          fill = "right")
+strawb_non_organic %>% dplyr::select(name) %>% unique()
+sum(strawb_non_organic$Domain == strawb_non_organic$types) == dim(strawb_non_organic)[1]
+#No. Now, know the difference between them
+x1 <- strawb_non_organic[(strawb_non_organic$Domain == strawb_non_organic$types) == FALSE,]
+#All the Domain==TOTAL and types == NOT SPECIFIED
+#delete Domain, keep types.
+## Do all the types entries begen with "Chemical"?
+x2 <- grep("CHEMICAL, ", 
+           strawb_non_organic$types, 
+            ignore.case = T)
+length(x2)
+##if they are not entries begen with "Chemical", what kind of thing they begin with?
+x3 <- strawb_non_organic[grepl("CHEMICAL, ",strawb_non_organic$types),]
+nrow(x3)
+x4 <- setdiff(strawb_non_organic, x3)
+View(x4)
+unique(x4$types)
+#"NOT SPECIFIED" "FERTILIZER" 
+#at this time, we can divide subset into chemical and FERTILIZER
+
+#deal with names
+strawb_non_organic %>% dplyr::select(name) %>% unique()
+#remove the parens
+strawb_non_organic$name <- str_remove_all(strawb_non_organic$name, "\\(")
+strawb_non_organic$name <- str_remove_all(strawb_non_organic$name, "\\)")
+## separate name and code
+strawb_non_organic %<>% separate(col = name,
+                          into = c("name","code"),
+                          sep = "=",
+                          fill = "right"
+) 
+
+#delete useless columns
+strawb_non_organic <- strawb_non_organic[!names(strawb_non_organic) %in% c("State ANSI","types")]
+
+#final slice non-organic strawberries dataset into 3 dataset:
+#first, slice data according to Period (marketing year and year);
+#Next, slice year data according to Domain or chemical
+strawb_non_organic_my <- strawb_non_organic[strawb_non_organic$Period=="MARKETING YEAR",]
+strawb_non_organic_y <- setdiff(strawb_non_organic, strawb_non_organic_my)
+strawb_non_organic_chemical <- strawb_non_organic[grepl("CHEMICAL, ",strawb_non_organic$Domain),]
+strawb_non_organic_fertilizers <- setdiff(strawb_non_organic_y, strawb_non_organic_chemical)
 
 
+#now, we have all datasets: 
+#strawb_organic
+#strawb_non_organic_my
+#strawb_non_organic_chemical
+#strawb_non_organic_fertilizers
 
 
+##However, there is still something wrong with data: 
+#1. type, type, items and units need to be cleaned
+#2. how to analysis CV and value
 
+##during analysis:
+#We also need to discuss about advantage and disadvantage chemicals in data.
